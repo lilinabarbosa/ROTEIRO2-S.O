@@ -1,0 +1,120 @@
+﻿Disciplina: Sistemas Operacionais 
+Professor: Henrique Cunha 
+Lista de exercícios 
+1. Sobre comunicação interprocessos, defina: 
+a) Condição de corrida (disputa): é uma falha que acontece no sistema onde múltiplas threads acessam o mesmo recurso compartilhado e modificam-o.
+b) Região Crítica: quando um recurso é acessado para modificação (escrita), ele se torna uma região crítica.
+c) Exclusão Mútua: quando uma thread acessa um recurso compartilhado, quaisquer outra thread que tentar ter o mesmo acesso no mesmo recurso não conseguirá modificar nada, pois ali já está tendo uma operação, tendo que aguardar até que o recurso fique disponível para a thread.
+d) Recurso compartilhado: elementos que podem ser acessados por múltiplos usuários.
+2. Quais as 4 condições para a garantia da exclusão mútua? Explique. 
+2.1 EXCLUSÃO MÚTUA - apenas uma thread/processo pode acessar a região crítica por vez. 
+2.2 POSSE E ESPERA - uma thread/processo que já detém pelo menos um recurso, pode esperar para acessar um recurso compartilhado que está em uso.
+2.3 NÃO PREEMPÇÃO - uma thread/processo não pode tomar um recurso a força, é necessário esperar até que seja liberado.
+2.4 ESPERA CIRCULAR - existe um ciclo fechado de threads, onde cada uma espera por um recurso que está próximo da cadeia. 
+3. Explique como funciona o método de sincronização de processos usando a instrução TSL. Existe algum problema com esse método? Explique. 
+funciona como uma variável, onde o processador lê e escreve ao mesmo tempo: 
+A ideia é usar uma variável compartilhada (lock) que indica se o recurso está livre ou ocupado:
+* lock == false → recurso livre
+* lock == true → recurso ocupado
+o algoritmo funciona da seguinte forma: a primeira thread le falso e muda o valor para true já que ela quer usar o recurso, a função lê e retorna o valor antigo. as outras threads que tentarem a mesma função lerão que o recurso está ocupado (retorna o valor true, pois a próxima thread le true)
+além da atomicidade, pois isso acontece ao mesmo tempo (leitura e escrita), garantindo a não interrupção, isso também trás alguns pontos negativos, como a queima de CPU - a thread entra em espera até o recurso ser liberado, mas enquanto ele está bloqueado, ele entra em um loop, além de possivelmente causar starvation (uma thread pode esperar eternamente) e deadlook.
+ 4. Em uma aplicação concorrente que controla saldo bancário em contas-correntes, dois processos compartilham uma região de memória onde estão armazenados os saldos dos clientes A e B. Os processos executam concorrentemente os seguintes passos: 
+Processo 1 (Cliente A) 
+____________________________ /* saque em A */ 
+1a. x := saldo_do_cliente_A 
+1b. x := x – 200; 
+1c. saldo_do_cliente_A := x;  
+/* depósito em B */ 
+1d. x := saldo_do_cliente_B; 
+1e. x := x + 100; 
+1f. saldo_do_cliente_B := x; 
+
+
+
+
+
+
+Processo 2 (Cliente B) 
+____________________________ /* saque em A */ 
+2a. y := saldo_do_cliente_A 
+2b. y := y – 100; 
+2c. saldo_do_cliente_A := y;  
+/* depósito em B */ 
+2d. y := saldo_do_cliente_B; 
+2e. y := y + 200; 
+2f. saldo_do_cliente_B := y;
+Supondo que os valores dos saldos de A e B sejam, respectivamente, 500 e 900, antes de os processos executarem, pede-se:  
+ a) Quais os valores corretos esperados para os saldos dos clientes A e B após o término da execução dos processos? Para isso, considere que os processos A e B executam 
+um em sequência do outro, sem timesharing. 
+PROCESSO A;                        PROCESSO B:
+x = 500 - 200                        y = 300 - 100
+A = 300                                A = 200
+                                        
+x = 900                                y = 1000
+x = 900 + 100 = 1000                y = 1000 + 200 = 1200
+B = 1000                                B = 1200
+ b) Quais os valores finais dos saldos dos clientes se a sequência temporal de execução das operações for: 1a, 2a, 1b, 2b, 1c, 2c, 1d, 2d, 1e, 2e, 1f, 2f?  
+1a) x = 500 / 2a) y = 500 / 1b) x = 300 / 2b) y = 400 / 1c) A = 300 / 2c) A = 400 / 1d) x = 900 / 2d) y = 900 / 1e) x = 1000 / 2e) y = 1100 / 1f) B = 1000 / 2f) B = 1100
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 5. Em sincronização de processos há problemas clássicos que servem de base para entender como funciona a comunicação entre processos. Existe, por exemplo, o problema do jantar dos filósofos, que pode ser ilustrado da seguinte forma: 
+                        F1
+             g4                     g1
+   F4                                 F2
+     g3                             g2
+                        F3
+ 
+• Cada filósofo tem 1 prato de espaguete 
+• Entre cada par de pratos existe 1 garfo 
+• Cada filósofo precisa de 2 garfos para comer o espaguete 
+• A vida de um filósofo é alternar entre comer e pensar 
+• Quando um filósofo fica com fome, ele tenta pegar os garfos à sua direita e à sua esquerda, um de cada vez em qualquer ordem. Se conseguir pegar 2 garfos, ele comerá durante um tempo e então colocará os garfos de volta na mesa e passará a pensar 
+• Considere que cada filósofo é um processo. 
+
+
+
+
+
+
+
+
+
+
+
+
+O problema é representado em pseudo-código abaixo: 
+1 #define F = 4 // Número de filósofos 
+2 
+3 void filósofo(int i) { 
+4 
+5 while(TRUE) { 
+6 
+7 pensar() 
+8 
+9 pegar_garfo(i) 
+10 
+11 pegar_garfo((i+1)%F) 
+12 
+13 comer() 
+14 
+15 soltar_garfo(i) 
+16 
+17 soltar_garfo((i+1)%F) 
+18 
+19 }
+Responda: 
+a) Qual é o recurso compartilhado nesse problema? os garfos.
+b) Enumere as linhas de código que contém a região crítica. 9, 11, 15 e 17
+c) É possível que haja uma condição de corrida na solução apresentada? Descreva como isso aconteceria. Lembre que há 4 processos exatamente iguais. sim. se pegar_garfo() não for atômica, dois filósofos vizinhos podem verificar o mesmo garfo como "livre" ao mesmo tempo e ambos o marcaram como "ocupado". os dois achavam que pegaram o garfo, gerando inconsistência. isso é uma condição de corrida, pois o resultado depende da ordem de execução das instruções.

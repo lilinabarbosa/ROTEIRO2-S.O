@@ -21,6 +21,7 @@ public class Barbearia {
     private int proximaSenha = 0;   // senha que sera entregue ao proximo cliente que sentar
     private int chamados = 0;       // quantas senhas o barbeiro ja chamou (0, 1, ..., chamados-1)
     private volatile boolean fechada = false;
+    //volatile faz com que o processador sempre verifique o conteúdo dessa variável na memória principal, e não em cache local da CPU. Assim, quando o main alterar a variável, o barbeiro vai perceber.
 
     public Barbearia(int cadeiras, Verificador verificador) {
         this.cadeiras = cadeiras;
@@ -32,39 +33,50 @@ public class Barbearia {
      * Retorna true se o cliente foi atendido, false se desistiu.
      */
     /* TODO 1: adicione o modificador 'synchronized' a este metodo. */
-    public boolean entrar(int id) throws InterruptedException {
-        if (esperando == cadeiras) {
-            return false;                    // sala de espera cheia: vai embora
+    public synchronized boolean entrar(int id) throws InterruptedException {
+    // quando 'synchronized' é colocado já na assinatura do método,
+    // o processo de bloqueio e desbloqueio se torna automático:
+    // ao entrar no método, a thread adquire o lock (bloqueando se
+    // outra já estiver dentro); ao sair (return, exceção ou fim),
+    // libera o lock — sem precisar de lock()/unlock() explícitos.
+        //synchronized(this) { poderia ser desta forma também
+            if (esperando == cadeiras) {
+                return false;                    // sala de espera cheia: vai embora
+            }
+
+            int minhaSenha = proximaSenha++;
+            esperando++;                         // senta na sala de espera
+            verificador.sentou(id, esperando, cadeiras);
+
+            /* TODO 2: avise o barbeiro (que pode estar dormindo) que chegou
+            *         um cliente:
+            *
+            *   notifyAll();
+            */
+            notifyAll();
+            /* TODO 3: espere ate o barbeiro chamar a sua senha. Use um laco
+            *         'while' (nao 'if'!):
+            *
+            *   while (chamados <= minhaSenha) {
+            *       wait();
+            *   }
+            */
+            while (chamados <= minhaSenha) {
+                wait();
+            }
+            verificador.chamado(id, minhaSenha, chamados);
+            return true;
+            //enquanto se está esperando, eu preciso checar se eu fui chamado ou não
+            //caso não, eu vou ficar esperando (dormindo) até chegar na minha senha.
         }
 
-        int minhaSenha = proximaSenha++;
-        esperando++;                         // senta na sala de espera
-        verificador.sentou(id, esperando, cadeiras);
-
-        /* TODO 2: avise o barbeiro (que pode estar dormindo) que chegou
-         *         um cliente:
-         *
-         *   notifyAll();
-         */
-
-        /* TODO 3: espere ate o barbeiro chamar a sua senha. Use um laco
-         *         'while' (nao 'if'!):
-         *
-         *   while (chamados <= minhaSenha) {
-         *       wait();
-         *   }
-         */
-
-        verificador.chamado(id, minhaSenha, chamados);
-        return true;
-    }
 
     /**
      * Chamado pela thread do barbeiro para pegar o proximo cliente.
      * Retorna false quando a barbearia fechou e nao ha mais ninguem.
      */
     /* TODO 4: adicione o modificador 'synchronized' a este metodo. */
-    public boolean chamarProximo() throws InterruptedException {
+    public synchronized boolean chamarProximo() throws InterruptedException {
 
         /* TODO 5: enquanto nao houver clientes (e a barbearia estiver
          *         aberta), o barbeiro dorme:
@@ -73,20 +85,22 @@ public class Barbearia {
          *       wait();
          *   }
          */
-
+        while (esperando == 0 && !fechada){
+            wait();
+        }
         if (fechada && esperando == 0) {
             return false;                    // fim do expediente
         }
 
         esperando--;                         // um cliente sai da sala de espera...
-        chamados++;                          // ...e a senha dele e chamada
+        chamados++;                          // ...e a senha dele é chamada
         verificador.verificarSala(esperando, cadeiras);
 
         /* TODO 6: avise os clientes que uma nova senha foi chamada:
          *
          *   notifyAll();
          */
-
+        notifyAll();
         return true;
     }
 
@@ -99,6 +113,7 @@ public class Barbearia {
          *
          *   notifyAll();
          */
+        notifyAll();
     }
 
     /* Infraestrutura auxiliar (usada pelo watchdog e pelo resultado final). */
